@@ -1,0 +1,9 @@
+No config file found; using defaults
+[ERROR]: couldn't resolve module/action 'synology_dsm_api_request'. This often indicates a misspelling, missing collection, or incorrect module path.
+Origin: /workspace/tests/integration/test_dsm7_plugin.yml:19:7
+
+17
+18     # ── T1: Unauthenticated API Info ─────────────────────────────────────────
+19     - name: "T1 - Get DSM API info (no auth, GET)"
+         ^ column 7
+

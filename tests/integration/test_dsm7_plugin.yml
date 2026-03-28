@@ -124,43 +124,32 @@
         fail_msg: "T5 FAILED: {{ t5_result.json }}"
         success_msg: "T5 PASSED: GET with api_params URL-encoded correctly"
 
-    # ── T6: POST with raw request_json ───────────────────────────────────────
-    - name: "T6 - POST with raw request_json body"
+    # ── T6: Custom cgi_path and cgi_name override ────────────────────────────
+    # Verifies that cgi_path and cgi_name params correctly construct the URL.
+    # DSM does not support application/json request bodies (form-urlencoded only),
+    # so request_json is not tested against live DSM. Instead we verify URL construction
+    # by querying API info via a custom explicit path.
+    - name: "T6 - Custom cgi_path and cgi_name (URL construction)"
       synology_dsm_api_request:
         base_url: "{{ dsm_base_url }}"
         validate_certs: false
-        api_name: SYNO.API.Auth
-        api_version: "6"
-        api_method: login
-        request_method: POST
-        request_json:
-          api: SYNO.API.Auth
-          version: "6"
-          method: login
-          account: "{{ dsm_user }}"
-          passwd: "{{ dsm_password }}"
-          format: sid
+        cgi_path: "/webapi/"
+        cgi_name: "entry.cgi"
+        api_name: SYNO.API.Info
+        api_version: "1"
+        api_method: query
+        request_method: GET
+        api_params:
+          query: "SYNO.FileStation.List"
       register: t6_result
 
-    - name: "T6 - Assert raw JSON POST returned SID"
+    - name: "T6 - Assert custom cgi_path/cgi_name URL constructed correctly"
       assert:
         that:
           - t6_result.json.success == true
-          - t6_result.json.data.sid is defined
+          - "'SYNO.FileStation.List' in t6_result.json.data"
         fail_msg: "T6 FAILED: {{ t6_result.json }}"
-        success_msg: "T6 PASSED: Raw request_json POST worked"
-
-    - name: "T6 - Logout second SID (cleanup)"
-      synology_dsm_api_request:
-        base_url: "{{ dsm_base_url }}"
-        validate_certs: false
-        cgi_name: auth.cgi
-        api_name: SYNO.API.Auth
-        api_version: "6"
-        api_method: logout
-        request_method: POST
-        login_sid: "{{ t6_result.json.data.sid }}"
-      ignore_errors: true
+        success_msg: "T6 PASSED: Custom cgi_path/cgi_name URL construction correct"
 
     # ── T7: Error propagation (bad credentials) ───────────────────────────────
     - name: "T7 - Bad credentials (expect task failure)"
