@@ -1,1 +1,5 @@
 *.pyc
+
+inventory.ini
+assets/test-run.cast
+tests/integration/logs/
