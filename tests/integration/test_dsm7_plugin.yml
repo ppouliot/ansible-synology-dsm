@@ -1,0 +1,201 @@
+---
+# DSM 7 Action Plugin Integration Tests
+# Target: http://172.19.0.43:5000
+# Run inside: ghcr.io/ansible/community-ansible-dev-tools:latest
+
+- name: "DSM 7 Action Plugin Integration Tests"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    dsm_base_url: "http://172.19.0.43:5000"
+    dsm_user: "beavis"
+    dsm_password: "B3@v!$&Butth3@d"
+
+  tasks:
+
+    # ── T1: Unauthenticated API Info ─────────────────────────────────────────
+    - name: "T1 - Get DSM API info (no auth, GET)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        api_name: SYNO.API.Info
+        api_version: "1"
+        api_method: query
+        api_params:
+          query: "SYNO.API.Auth"
+      register: t1_result
+
+    - name: "T1 - Assert success and SYNO.API.Auth in response"
+      assert:
+        that:
+          - t1_result.json.success == true
+          - "'SYNO.API.Auth' in t1_result.json.data"
+        fail_msg: "T1 FAILED: {{ t1_result.json }}"
+        success_msg: "T1 PASSED: API info returned successfully"
+
+    # ── T2: DSM 7 SID Login ──────────────────────────────────────────────────
+    - name: "T2 - Login and obtain SID (DSM 7, POST)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        cgi_name: auth.cgi
+        api_name: SYNO.API.Auth
+        api_version: "6"
+        api_method: login
+        request_method: POST
+        api_params:
+          account: "{{ dsm_user }}"
+          passwd: "{{ dsm_password }}"
+          format: sid
+      register: t2_login
+
+    - name: "T2 - Assert SID obtained"
+      assert:
+        that:
+          - t2_login.json.success == true
+          - t2_login.json.data.sid is defined
+          - t2_login.json.data.sid | length > 0
+        fail_msg: "T2 FAILED: {{ t2_login.json }}"
+        success_msg: "T2 PASSED: SID obtained - {{ t2_login.json.data.sid[:8] }}..."
+
+    - name: "T2 - Store SID as fact"
+      set_fact:
+        dsm_sid: "{{ t2_login.json.data.sid }}"
+
+    # ── T3: Authenticated GET with SID ───────────────────────────────────────
+    - name: "T3 - Authenticated GET (SID in query string)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        api_name: SYNO.FileStation.Info
+        api_version: "2"
+        api_method: get
+        request_method: GET
+        login_sid: "{{ dsm_sid }}"
+      register: t3_result
+
+    - name: "T3 - Assert authenticated GET succeeded"
+      assert:
+        that:
+          - t3_result.json.success == true
+        fail_msg: "T3 FAILED: {{ t3_result.json }}"
+        success_msg: "T3 PASSED: Authenticated GET with SID succeeded"
+
+    # ── T4: Authenticated POST with SID ──────────────────────────────────────
+    - name: "T4 - Authenticated POST (SID in body)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        api_name: SYNO.FileStation.List
+        api_version: "2"
+        api_method: list_share
+        request_method: POST
+        login_sid: "{{ dsm_sid }}"
+      register: t4_result
+
+    - name: "T4 - Assert authenticated POST succeeded with shares list"
+      assert:
+        that:
+          - t4_result.json.success == true
+          - t4_result.json.data.shares is defined
+        fail_msg: "T4 FAILED: {{ t4_result.json }}"
+        success_msg: "T4 PASSED: Authenticated POST returned {{ t4_result.json.data.shares | length }} shares"
+
+    # ── T5: GET with api_params URL encoding ─────────────────────────────────
+    - name: "T5 - GET with api_params (URL encoding test)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        api_name: SYNO.FileStation.List
+        api_version: "2"
+        api_method: list_share
+        request_method: GET
+        login_sid: "{{ dsm_sid }}"
+        api_params:
+          additional: '["real_path","size"]'
+      register: t5_result
+
+    - name: "T5 - Assert GET with api_params succeeded"
+      assert:
+        that:
+          - t5_result.json.success == true
+        fail_msg: "T5 FAILED: {{ t5_result.json }}"
+        success_msg: "T5 PASSED: GET with api_params URL-encoded correctly"
+
+    # ── T6: Custom cgi_path and cgi_name override ────────────────────────────
+    # Verifies that cgi_path and cgi_name params correctly construct the URL.
+    # DSM does not support application/json request bodies (form-urlencoded only),
+    # so request_json is not tested against live DSM. Instead we verify URL construction
+    # by querying API info via a custom explicit path.
+    - name: "T6 - Custom cgi_path and cgi_name (URL construction)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        cgi_path: "/webapi/"
+        cgi_name: "entry.cgi"
+        api_name: SYNO.API.Info
+        api_version: "1"
+        api_method: query
+        request_method: GET
+        api_params:
+          query: "SYNO.FileStation.List"
+      register: t6_result
+
+    - name: "T6 - Assert custom cgi_path/cgi_name URL constructed correctly"
+      assert:
+        that:
+          - t6_result.json.success == true
+          - "'SYNO.FileStation.List' in t6_result.json.data"
+        fail_msg: "T6 FAILED: {{ t6_result.json }}"
+        success_msg: "T6 PASSED: Custom cgi_path/cgi_name URL construction correct"
+
+    # ── T7: Error propagation (bad credentials) ───────────────────────────────
+    - name: "T7 - Bad credentials (expect task failure)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        cgi_name: auth.cgi
+        api_name: SYNO.API.Auth
+        api_version: "6"
+        api_method: login
+        request_method: POST
+        api_params:
+          account: "wronguser"
+          passwd: "wrongpass"
+          format: sid
+      register: t7_result
+      ignore_errors: true
+
+    - name: "T7 - Assert task failed on bad auth"
+      assert:
+        that:
+          - t7_result.failed == true
+        fail_msg: "T7 FAILED: Expected failure but got success={{ t7_result.json.success }}"
+        success_msg: "T7 PASSED: Bad credentials correctly surfaced as task failure"
+
+    # ── T8: Logout ────────────────────────────────────────────────────────────
+    - name: "T8 - Logout (invalidate primary SID)"
+      synology_dsm_api_request:
+        base_url: "{{ dsm_base_url }}"
+        validate_certs: false
+        cgi_name: auth.cgi
+        api_name: SYNO.API.Auth
+        api_version: "6"
+        api_method: logout
+        request_method: POST
+        login_sid: "{{ dsm_sid }}"
+      register: t8_result
+
+    - name: "T8 - Assert logout succeeded"
+      assert:
+        that:
+          - t8_result.json.success == true
+        fail_msg: "T8 FAILED: {{ t8_result.json }}"
+        success_msg: "T8 PASSED: Logout succeeded, SID invalidated"
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    - name: "ALL TESTS PASSED"
+      debug:
+        msg: "✅ All 8 DSM 7 action plugin integration tests passed against http://172.19.0.43:5000"

@@ -1,0 +1,67 @@
+No config file found; using defaults
+
+PLAY [DSM 7 Action Plugin Integration Tests] ***********************************
+
+TASK [T1 - Get DSM API info (no auth, GET)] ************************************
+[WARNING]: Host 'localhost' is using the discovered Python interpreter at '/usr/bin/python3.13', but future installation of another Python interpreter could cause a different interpreter to be discovered. See https://docs.ansible.com/ansible-core/2.20/reference_appendices/interpreter_discovery.html for more information.
+ok: [localhost] => {"ansible_facts": {"discovered_interpreter_python": "/usr/bin/python3.13"}, "cache_control": "max-age=0, no-cache, no-store, must-revalidate", "changed": false, "connection": "close", "content_type": "application/json; charset=\"UTF-8\"", "cookies": {}, "cookies_string": "", "date": "Sat, 28 Mar 2026 16:05:06 GMT", "elapsed": 0, "expires": "0", "json": {"data": {"SYNO.API.Auth": {"maxVersion": 7, "minVersion": 1, "path": "entry.cgi"}}, "success": true}, "msg": "OK (unknown bytes)", "pragma": "no-cache", "redirected": false, "server": "nginx", "status": 200, "transfer_encoding": "chunked", "url": "http://172.19.0.43:5000/webapi/entry.cgi?api=SYNO.API.Info&version=1&method=query&query=SYNO.API.Auth", "vary": "Accept-Encoding", "x_content_type_options": "nosniff", "x_xss_protection": "1; mode=block"}
+
+TASK [T1 - Assert success and SYNO.API.Auth in response] ***********************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "T1 PASSED: API info returned successfully"
+}
+
+TASK [T2 - Login and obtain SID (DSM 7, POST)] *********************************
+ok: [localhost] => {"cache_control": "max-age=0, no-cache, no-store, must-revalidate", "changed": false, "connection": "close", "content_type": "application/json; charset=\"UTF-8\"", "cookies": {}, "cookies_string": "", "date": "Sat, 28 Mar 2026 16:05:07 GMT", "elapsed": 1, "expires": "0", "json": {"data": {"did": "u3x1Dd4x3nSdEb7hxSr0Tj5B7oaa6EYGuNREB7eDaAH99P5Z_iAIGLR9NZ7ikH3CUtdehfZ1eNjzh5w6bCWZEA", "is_portal_port": false, "sid": "c6voa1ue_h-JkgywkFDsBfb39KOZ3Pd5C1gxL3f8ymghFXehFW8b7wh7w2eQkS2ekd_LPPrbhW-COslhK7RimA"}, "success": true}, "msg": "OK (unknown bytes)", "p3p": "CP=\"IDC DSP COR ADM DEVi TAIi PSA PSD IVAi IVDi CONi HIS OUR IND CNT\"", "pragma": "no-cache", "redirected": false, "server": "nginx", "status": 200, "transfer_encoding": "chunked", "url": "http://172.19.0.43:5000/webapi/auth.cgi", "vary": "Accept-Encoding", "x_content_type_options": "nosniff, nosniff", "x_xss_protection": "1; mode=block, 1; mode=block"}
+
+TASK [T2 - Assert SID obtained] ************************************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "T2 PASSED: SID obtained - c6voa1ue..."
+}
+
+TASK [T2 - Store SID as fact] **************************************************
+ok: [localhost] => {"ansible_facts": {"dsm_sid": "c6voa1ue_h-JkgywkFDsBfb39KOZ3Pd5C1gxL3f8ymghFXehFW8b7wh7w2eQkS2ekd_LPPrbhW-COslhK7RimA"}, "changed": false}
+
+TASK [T3 - Authenticated GET (SID in query string)] ****************************
+ok: [localhost] => {"cache_control": "max-age=0, no-cache, no-store, must-revalidate", "changed": false, "connection": "close", "content_type": "application/json; charset=\"UTF-8\"", "cookies": {}, "cookies_string": "", "date": "Sat, 28 Mar 2026 16:05:08 GMT", "elapsed": 0, "expires": "0", "json": {"data": {"allow_heic_original": false, "allow_normal_disable_html": false, "enable_list_usergrp": false, "enable_send_email_attachment": true, "enable_view_google": true, "enable_view_microsoft": true, "hostname": "ds218", "is_manager": true, "items": [{"gid": 100}, {"gid": 101}], "support_file_request": true, "support_sharing": true, "support_vfs": true, "support_virtual": {"enable_iso_mount": true, "enable_remote_mount": true}, "support_virtual_protocol": ["cifs", "nfs", "iso"], "system_codepage": "enu", "uid": 1027}, "success": true}, "msg": "OK (unknown bytes)", "pragma": "no-cache", "redirected": false, "server": "nginx", "status": 200, "transfer_encoding": "chunked", "url": "http://172.19.0.43:5000/webapi/entry.cgi?api=SYNO.FileStation.Info&version=2&method=get&_sid=c6voa1ue_h-JkgywkFDsBfb39KOZ3Pd5C1gxL3f8ymghFXehFW8b7wh7w2eQkS2ekd_LPPrbhW-COslhK7RimA", "vary": "Accept-Encoding", "x_content_type_options": "nosniff", "x_xss_protection": "1; mode=block"}
+
+TASK [T3 - Assert authenticated GET succeeded] *********************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "T3 PASSED: Authenticated GET with SID succeeded"
+}
+
+TASK [T4 - Authenticated POST (SID in body)] ***********************************
+ok: [localhost] => {"cache_control": "max-age=0, no-cache, no-store, must-revalidate", "changed": false, "connection": "close", "content_type": "application/json; charset=\"UTF-8\"", "cookies": {}, "cookies_string": "", "date": "Sat, 28 Mar 2026 16:05:08 GMT", "elapsed": 0, "expires": "0", "json": {"data": {"offset": 0, "shares": [], "total": 0}, "success": true}, "msg": "OK (unknown bytes)", "pragma": "no-cache", "redirected": false, "server": "nginx", "status": 200, "transfer_encoding": "chunked", "url": "http://172.19.0.43:5000/webapi/entry.cgi", "vary": "Accept-Encoding", "x_content_type_options": "nosniff", "x_xss_protection": "1; mode=block"}
+
+TASK [T4 - Assert authenticated POST succeeded with shares list] ***************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "T4 PASSED: Authenticated POST returned 0 shares"
+}
+
+TASK [T5 - GET with api_params (URL encoding test)] ****************************
+ok: [localhost] => {"cache_control": "max-age=0, no-cache, no-store, must-revalidate", "changed": false, "connection": "close", "content_type": "application/json; charset=\"UTF-8\"", "cookies": {}, "cookies_string": "", "date": "Sat, 28 Mar 2026 16:05:09 GMT", "elapsed": 0, "expires": "0", "json": {"data": {"offset": 0, "shares": [], "total": 0}, "success": true}, "msg": "OK (unknown bytes)", "pragma": "no-cache", "redirected": false, "server": "nginx", "status": 200, "transfer_encoding": "chunked", "url": "http://172.19.0.43:5000/webapi/entry.cgi?api=SYNO.FileStation.List&version=2&method=list_share&additional=%5B%22real_path%22%2C%22size%22%5D&_sid=c6voa1ue_h-JkgywkFDsBfb39KOZ3Pd5C1gxL3f8ymghFXehFW8b7wh7w2eQkS2ekd_LPPrbhW-COslhK7RimA", "vary": "Accept-Encoding", "x_content_type_options": "nosniff", "x_xss_protection": "1; mode=block"}
+
+TASK [T5 - Assert GET with api_params succeeded] *******************************
+ok: [localhost] => {
+    "changed": false,
+    "msg": "T5 PASSED: GET with api_params URL-encoded correctly"
+}
+
+TASK [T6 - POST with raw request_json body (FileStation endpoint)] *************
+[ERROR]: Task failed: Action failed: OK (unknown bytes)
+Origin: /workspace/tests/integration/test_dsm7_plugin.yml:130:7
+
+128     # Note: auth.cgi only accepts form-urlencoded. request_json is for JSON-native
+129     # endpoints. We test it against SYNO.FileStation.List which accepts JSON body.
+130     - name: "T6 - POST with raw request_json body (FileStation endpoint)"
+          ^ column 7
+
+fatal: [localhost]: FAILED! => {"cache_control": "max-age=0, no-cache, no-store, must-revalidate", "changed": false, "connection": "close", "content_type": "application/json; charset=\"UTF-8\"", "cookies": {}, "cookies_string": "", "date": "Sat, 28 Mar 2026 16:05:09 GMT", "elapsed": 0, "expires": "0", "json": {"error": {"code": 101}, "success": false}, "msg": "OK (unknown bytes)", "pragma": "no-cache", "redirected": false, "server": "nginx", "status": 200, "transfer_encoding": "chunked", "url": "http://172.19.0.43:5000/webapi/entry.cgi", "vary": "Accept-Encoding", "x_content_type_options": "nosniff", "x_xss_protection": "1; mode=block"}
+
+PLAY RECAP *********************************************************************
+localhost                  : ok=11   changed=0    unreachable=0    failed=1    skipped=0    rescued=0    ignored=0   
+
